@@ -3,14 +3,14 @@ from scipy.ndimage import uniform_filter, convolve
 
 
 def find_regions(
-    mask,
-    window_size,
-    kernel="uniform",
-    n_top=10,
-    forbidden_size=None,
-    min_edge_distance=None,
-    return_weighted=False,
-):
+    mask: np.ndarray,
+    window_size: int,
+    kernel: str | np.ndarray = "uniform",
+    n_top: int = 10,
+    forbidden_size: int | None = None,
+    min_edge_distance: int | None = None,
+    return_weighted: bool = False,
+) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Default min_edge_distance to window_size
     if min_edge_distance is None:
         min_edge_distance = window_size
@@ -95,8 +95,8 @@ def find_regions(
                 if len(selected) >= n_top:
                     break
 
-        best_y = [s[0] for s in selected]
-        best_x = [s[1] for s in selected]
+        best_y = np.array([s[0] for s in selected])
+        best_x = np.array([s[1] for s in selected])
 
     if return_weighted:
         return best_x, best_y, dq_count
