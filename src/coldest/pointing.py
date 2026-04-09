@@ -2,18 +2,48 @@ import numpy as np
 from scipy.ndimage import uniform_filter, convolve
 
 
+def _shift_with_fill(
+    arr: np.ndarray, dy: int, dx: int, fill_value: float = np.inf
+) -> np.ndarray:
+    """Return `arr[row + dy, col + dx]` sampled on the original grid."""
+    height, width = arr.shape
+    shifted = np.full((height, width), fill_value, dtype=float)
+
+    out_row_start = max(0, -dy)
+    out_row_end = min(height, height - dy)
+    out_col_start = max(0, -dx)
+    out_col_end = min(width, width - dx)
+
+    if out_row_start >= out_row_end or out_col_start >= out_col_end:
+        return shifted
+
+    src_row_start = out_row_start + dy
+    src_row_end = out_row_end + dy
+    src_col_start = out_col_start + dx
+    src_col_end = out_col_end + dx
+
+    shifted[out_row_start:out_row_end, out_col_start:out_col_end] = arr[
+        src_row_start:src_row_end, src_col_start:src_col_end
+    ]
+    return shifted
+
+
 def find_regions(
     mask: np.ndarray,
     window_size: int,
     kernel: str | np.ndarray = "uniform",
     n_top: int = 10,
     forbidden_size: int | None = None,
+    separation: tuple[int, int] | None = None,
+    joint_offsets: list[tuple[int, int]] | np.ndarray | None = None,
     min_edge_distance: int | None = None,
     return_weighted: bool = False,
 ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
+
     # Default min_edge_distance to window_size
     if min_edge_distance is None:
         min_edge_distance = window_size
+
     # Average of dq_mask in 70x70 region centered on each pixel
     if isinstance(kernel, np.ndarray):
         dq_filtered = convolve(mask.astype(float), kernel, mode="constant")
@@ -26,6 +56,8 @@ def find_regions(
 
     # Convert average to count per region
     dq_count = dq_filtered * window_size**2
+
+    forbidden_invalid: np.ndarray | None = None
 
     # Apply forbidden region filter if specified
     if forbidden_size is not None:
@@ -42,8 +74,43 @@ def find_regions(
             mask.astype(float), forbidden_kernel, mode="constant"
         )
 
+        forbidden_invalid = forbidden_check > 0
+
         # Mark regions with any forbidden pixels as invalid (set to inf)
-        dq_count = np.where(forbidden_check > 0, np.inf, dq_count)
+        dq_count = np.where(forbidden_invalid, np.inf, dq_count)
+
+    if separation is not None and joint_offsets is not None:
+        raise ValueError("Use either separation or joint_offsets, not both")
+
+    if separation is not None:
+        joint_offsets = [tuple(int(v) for v in separation)]
+
+    if joint_offsets is not None:
+        if isinstance(joint_offsets, np.ndarray):
+            if joint_offsets.ndim != 2 or joint_offsets.shape[1] != 2:
+                raise ValueError(
+                    "joint_offsets numpy array must have shape (n_offsets, 2)"
+                )
+            normalized_offsets = [tuple(map(int, offset)) for offset in joint_offsets]
+        else:
+            normalized_offsets = []
+            for offset in joint_offsets:
+                if len(offset) != 2:
+                    raise ValueError("Each joint offset must be a (dy, dx) tuple")
+                normalized_offsets.append(tuple(map(int, offset)))
+
+        all_offsets = [*normalized_offsets]
+        shifted = [_shift_with_fill(dq_count, dy, dx) for dy, dx in all_offsets]
+        dq_count = np.sum(np.stack(shifted, axis=0), axis=0)
+
+        if forbidden_invalid is not None:
+            forbidden_float = forbidden_invalid.astype(float)
+            shifted_forbidden = [
+                _shift_with_fill(forbidden_float, dy, dx, fill_value=0.0)
+                for dy, dx in all_offsets
+            ]
+            joint_forbidden = np.any(np.stack(shifted_forbidden, axis=0) > 0, axis=0)
+            dq_count = np.where(joint_forbidden, np.inf, dq_count)
 
     flat_dq_count = dq_count.flatten()
 
