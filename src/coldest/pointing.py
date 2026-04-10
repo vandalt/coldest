@@ -3,9 +3,16 @@ from scipy.ndimage import uniform_filter, convolve
 
 
 def _shift_with_fill(
-    arr: np.ndarray, dy: int, dx: int, fill_value: float = np.inf
+    arr: np.ndarray, dx: int, dy: int, fill_value: float = np.inf
 ) -> np.ndarray:
-    """Return `arr[row + dy, col + dx]` sampled on the original grid."""
+    """Return `arr[row + dy, col + dx]` sampled on the original grid.
+
+    :param arr: Array to resample
+    :param dx: dx offset (along columns)
+    :param dy: dy offset (along rows)
+    :param fill_value: Value for out of bound pixels (defaults to np.inf)
+    :return: Resampled array
+    """
     height, width = arr.shape
     shifted = np.full((height, width), fill_value, dtype=float)
 
@@ -34,12 +41,34 @@ def find_regions(
     kernel: str | np.ndarray = "uniform",
     n_top: int = 10,
     forbidden_size: int | None = None,
-    separation: tuple[int, int] | None = None,
     joint_offsets: list[tuple[int, int]] | np.ndarray | None = None,
     min_edge_distance: int | None = None,
     return_weighted: bool = False,
 ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Find regions for optimal pointing
 
+    Searches the ``n_top`` windows that minimize the number of bad pixels.
+    Returns the optimal pointing position for each window.
+
+    :param mask: Bad pixel mask
+    :param window_size: Window size to optimize
+    :param kernel: Kernel used to weigh bad pixels in the window.
+                   Can be "uniform" or a custom array. Defaults to "uniform".
+    :param n_top: Number of optimal pointings to return. 10 by default.
+    :param forbidden_size: Size of the central region where no bad pixels are allowed.
+                           Defaults to ``None``.
+    :param joint_offsets: Offests to apply after the pointing to generate the window in pixels.
+                           Useful to replicate dithers. Should be a list of (dx, dy) offsets
+                           where y is along rows and x along columns.
+                           Defaults to ``None``.
+    :param min_edge_distance: Minimal distance to keep from the edge in pixels.
+                              Defaults to ``None``.
+    :param return_weighted: Whether the mask weighted by the kernel for all
+                            explored windows should be returned.
+                            Defaults to ``False``.
+    :return: Arrays of x and y optimal pointing coordinate,
+              along with the weighted mask if ``return_weighted`` is true.
+    """
     # Default min_edge_distance to window_size
     if min_edge_distance is None:
         min_edge_distance = window_size
@@ -79,12 +108,6 @@ def find_regions(
         # Mark regions with any forbidden pixels as invalid (set to inf)
         dq_count = np.where(forbidden_invalid, np.inf, dq_count)
 
-    if separation is not None and joint_offsets is not None:
-        raise ValueError("Use either separation or joint_offsets, not both")
-
-    if separation is not None:
-        joint_offsets = [tuple(int(v) for v in separation)]
-
     if joint_offsets is not None:
         if isinstance(joint_offsets, np.ndarray):
             if joint_offsets.ndim != 2 or joint_offsets.shape[1] != 2:
@@ -96,11 +119,11 @@ def find_regions(
             normalized_offsets = []
             for offset in joint_offsets:
                 if len(offset) != 2:
-                    raise ValueError("Each joint offset must be a (dy, dx) tuple")
+                    raise ValueError("Each joint offset must be a (dx, dy) tuple")
                 normalized_offsets.append(tuple(map(int, offset)))
 
         all_offsets = [*normalized_offsets]
-        shifted = [_shift_with_fill(dq_count, dy, dx) for dy, dx in all_offsets]
+        shifted = [_shift_with_fill(dq_count, dx, dy) for dx, dy in all_offsets]
         dq_count = np.sum(np.stack(shifted, axis=0), axis=0)
 
         if forbidden_invalid is not None:
