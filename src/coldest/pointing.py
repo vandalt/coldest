@@ -37,7 +37,7 @@ def apply_pointing(
     file: str | Path | JwstDataModel,
     coords: str = "detector",
 ):
-    modle = _ensure_model(file)
+    model = _ensure_model(file)
 
     detector = model.meta.instrument.detector
     pscale = PSCALE_DICT[detector]
