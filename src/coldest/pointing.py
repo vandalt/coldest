@@ -442,6 +442,21 @@ def long_to_short(x, y, file_lw, file_sw):
 
     return x_sw, y_sw
 
+def get_sw_detector(x: int, y: int) -> str:
+    npix = 2048
+    top = y > npix // 2
+    right = x > npix // 2
+    if top and right:
+        det_sw = "nrcb1"
+    elif top and not right:
+        det_sw = "nrcb3"
+    elif not top and right:
+        det_sw = "nrcb2"
+    elif not top and not right:
+        det_sw = "nrcb4"
+    return det_sw
+
+
 
 def xy_to_v2v3(x, y, model):
     model = _ensure_model(model)
