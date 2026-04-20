@@ -13,6 +13,7 @@ PSCALE_DICT = {
 }
 V2V3_REF_DICT = {
     "NRCBS_FULL": (-83.63, -495.98),
+    "NRCB5_FULLP": (-133.181, -446.804),
 }
 
 
@@ -440,3 +441,13 @@ def long_to_short(x, y, file_lw, file_sw):
     x_sw, y_sw = model_sw.meta.wcs.transform("v2v3", "detector", v2, v3)
 
     return x_sw, y_sw
+
+
+def xy_to_v2v3(x, y, model):
+    model = _ensure_model(model)
+    return model.meta.wcs.transform("detector", "v2v3", x, y)
+
+
+def v2v3_to_xy(v2, v3, model):
+    model = _ensure_model(model)
+    return model.meta.wcs.transform("v2v3", "detector", v2, v3)
