@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import pandas as pd
 from astropy.io import fits
 from astroquery.mast import Observations
 
@@ -42,4 +41,4 @@ def download_other(filename, data_dir):
         xoffset = hdr["XOFFSET"]
         yoffset = hdr["YOFFSET"]
     x_target, y_target = pointing.apply_pointing(xoffset, yoffset, path)
-    return path, x_target, y_target
+    return path, int(x_target), int(y_target)

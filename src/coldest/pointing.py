@@ -146,6 +146,7 @@ def find_regions(
     forbidden_size: int | None = None,
     joint_offsets: list[tuple[int, int]] | np.ndarray | None = None,
     min_edge_distance: int | None = None,
+    subarray: str | None = None,
     return_weighted: bool = False,
 ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Find regions for optimal pointing
@@ -166,6 +167,8 @@ def find_regions(
                            Defaults to ``None``.
     :param min_edge_distance: Minimal distance to keep from the edge in pixels.
                               Defaults to ``None``.
+    :param subarray: Subarray to use for the region search. If ``None``, the FULL subarray is used.
+                     Defaults to ``None``.
     :param return_weighted: Whether the mask weighted by the kernel for all
                             explored windows should be returned.
                             Defaults to ``False``.
@@ -240,6 +243,19 @@ def find_regions(
 
     flat_dq_count = dq_count.flatten()
 
+    if subarray is None or subarray.upper() == "FULL":
+        min_row = 0
+        max_row = 0
+        max_row = 2048
+        max_col = 2048
+    elif subarray.upper() == "FULLP":
+        min_row = 1024
+        min_col = 1024
+        max_row = 2048
+        max_col = 2048
+    else:
+        raise ValueError("Only FULL and FULLP subarrays are supported")
+
     overlap_ok = False
     if overlap_ok:
         n_top = 10
@@ -267,6 +283,9 @@ def find_regions(
                 or col < min_edge_distance
                 or col >= mask_width - min_edge_distance
             ):
+                continue
+
+            if row < min_row or row >= max_row or col < min_col or col >= max_col:
                 continue
 
             # Check if this position overlaps with any already selected
@@ -306,6 +325,7 @@ def do_region_search(
     forbidden_size: int | None = None,
     joint_offsets: list[tuple[int, int]] | None = None,
     min_edge_distance: int | None = None,
+    subarray: str | None = None,
     show: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Perform optimal region search and show some plots
@@ -329,6 +349,8 @@ def do_region_search(
                            Defaults to ``None``.
     :param min_edge_distance: Minimal distance to keep from the edge in pixels.
                               Defaults to ``None``.
+    :param subarray: Subarray to use for the region search. If ``None``, the FULL subarray is used.
+                     Defaults to ``None``.
     :param show: Show the plots if True
     :return: The X and Y offsets
     """
@@ -346,6 +368,7 @@ def do_region_search(
         n_top=n_top,
         joint_offsets=joint_offsets,
         min_edge_distance=min_edge_distance,
+        subarray=subarray,
         return_weighted=True,
     )
 
@@ -442,6 +465,7 @@ def long_to_short(x, y, file_lw, file_sw):
 
     return x_sw, y_sw
 
+
 def get_sw_detector(x: int, y: int) -> str:
     npix = 2048
     top = y > npix // 2
@@ -455,7 +479,6 @@ def get_sw_detector(x: int, y: int) -> str:
     elif not top and not right:
         det_sw = "nrcb4"
     return det_sw
-
 
 
 def xy_to_v2v3(x, y, model):

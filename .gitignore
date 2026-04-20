@@ -14,3 +14,4 @@ dist/
 # Misc
 notebooks/data
 notebooks/*.md
+notebooks/results
