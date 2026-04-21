@@ -14,6 +14,7 @@ PSCALE_DICT = {
 V2V3_REF_DICT = {
     "NRCBS_FULL": (-83.63, -495.98),
     "NRCB5_FULLP": (-133.181, -446.804),
+    "NRCB5_SUB400P": (-148.665, -432.148),
 }
 
 
@@ -243,9 +244,9 @@ def find_regions(
 
     flat_dq_count = dq_count.flatten()
 
-    if subarray is None or subarray.upper() == "FULL":
+    if subarray is None or subarray.upper() in ["FULL", "SUB400P"]:
         min_row = 0
-        max_row = 0
+        min_col = 0
         max_row = 2048
         max_col = 2048
     elif subarray.upper() == "FULLP":
@@ -428,7 +429,7 @@ def zoom_plot(
     axs[0].imshow(region, norm="symlog")
 
     region_mask = np.isnan(region)
-    if psf is not None:
+    if psf is not None and psf.shape == region.shape:
         img_with_bad = psf.copy()
         img_with_bad[region_mask] = np.nan
         axs[1].imshow(img_with_bad, norm="symlog")
@@ -466,18 +467,23 @@ def long_to_short(x, y, file_lw, file_sw):
     return x_sw, y_sw
 
 
-def get_sw_detector(x: int, y: int) -> str:
-    npix = 2048
-    top = y > npix // 2
-    right = x > npix // 2
-    if top and right:
+def get_sw_detector(x: int, y: int, subarray) -> str:
+    if subarray == "FULL" or subarray == "FULLP":
+        npix = 2048
+        top = y > npix // 2
+        right = x > npix // 2
+        if top and right:
+            det_sw = "nrcb1"
+        elif top and not right:
+            det_sw = "nrcb3"
+        elif not top and right:
+            det_sw = "nrcb2"
+        elif not top and not right:
+            det_sw = "nrcb4"
+    elif subarray == "SUB400P":
         det_sw = "nrcb1"
-    elif top and not right:
-        det_sw = "nrcb3"
-    elif not top and right:
-        det_sw = "nrcb2"
-    elif not top and not right:
-        det_sw = "nrcb4"
+    else:
+        raise ValueError(f"Unexpected subarray {subarray}. Only FULL and SUB400P supported.")
     return det_sw
 
 
