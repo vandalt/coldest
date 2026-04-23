@@ -244,7 +244,7 @@ def find_regions(
 
     flat_dq_count = dq_count.flatten()
 
-    if subarray is None or subarray.upper() in ["FULL", "SUB400P"]:
+    if subarray is None or subarray.upper() in ["FULL"]:
         min_row = 0
         min_col = 0
         max_row = 2048
@@ -254,6 +254,11 @@ def find_regions(
         min_col = 1024
         max_row = 2048
         max_col = 2048
+    elif subarray.upper() == "SUB400P":
+        min_row = 150
+        min_col = 150
+        max_row = 450
+        max_col = 450
     else:
         raise ValueError("Only FULL and FULLP subarrays are supported")
 
@@ -373,6 +378,8 @@ def do_region_search(
         return_weighted=True,
     )
 
+    n_top = min(n_top, len(best_x))
+
     # Plot the full frame DQ, weighted DQ and SCI frames with the best regions
     fig, axs = plt.subplots(1, 3, figsize=(15, 5), sharex=True, sharey=True)
     axs[0].imshow(dq_mask)
@@ -391,7 +398,7 @@ def do_region_search(
     else:
         plt.close(fig)
 
-    fig, axs = plt.subplots(2, n_top, figsize=(20, 5), sharex=True, sharey=True)
+    fig, axs = plt.subplots(2, n_top, figsize=(20, 5), sharex=True, sharey=True, squeeze=False)
     for i in range(n_top):
         region_y, region_x = best_y[i], best_x[i]
         region = img[
@@ -447,7 +454,7 @@ def plot_dithers(img, xopt_all, yopt_all, size, psf=None):
     for i in range(ndithers):
         plt.scatter(xopt_all[i], yopt_all[i], marker=f"${i + 1}$", color="r")
 
-    fig_zoom, axs = plt.subplots(2, ndithers, figsize=(10, 5))
+    fig_zoom, axs = plt.subplots(2, ndithers, figsize=(10, 5), squeeze=False)
     for i in range(ndithers):
         region_mask = zoom_plot(
             img, xopt_all[i], yopt_all[i], size, axs=axs[:, i], psf=psf
